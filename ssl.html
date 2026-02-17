@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SSL Certificate Management Portal</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6f9;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background: #1f2937;
+      color: white;
+      padding: 15px;
+      text-align: center;
+      font-size: 22px;
+      font-weight: bold;
+    }
+    .container {
+      max-width: 900px;
+      margin: 30px auto;
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+    .tabs {
+      display: flex;
+      margin-bottom: 20px;
+    }
+    .tab {
+      flex: 1;
+      padding: 10px;
+      cursor: pointer;
+      text-align: center;
+      background: #e5e7eb;
+      border: none;
+      font-weight: bold;
+    }
+    .tab.active {
+      background: #2563eb;
+      color: white;
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    input, button {
+      padding: 10px;
+      margin: 8px 0;
+      width: 100%;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+    }
+    button {
+      background: #2563eb;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #1e40af;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      padding: 10px;
+      border: 1px solid #ddd;
+      text-align: left;
+    }
+    th {
+      background: #f3f4f6;
+    }
+    .danger {
+      color: red;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+<header>SSL Certificate Management Portal</header>
+
+<div class="container">
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('add')">Add Certificate</button>
+    <button class="tab" onclick="showTab('view')">View Certificates</button>
+  </div>
+
+  <div id="add" class="tab-content active">
+    <h3>Add Single Certificate</h3>
+    <input type="text" id="certName" placeholder="Certificate Name (e.g., ogp.ez.com)">
+    <input type="date" id="expiryDate">
+    <button onclick="addCertificate()">Add Certificate</button>
+
+    <h3>Bulk Upload (CSV)</h3>
+    <input type="file" id="fileUpload" accept=".csv" onchange="uploadCSV(event)">
+    <p>CSV Format: CertificateName,ExpiryDate (YYYY-MM-DD)</p>
+  </div>
+
+  <div id="view" class="tab-content">
+    <h3>All Certificates</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Certificate Name</th>
+          <th>Expiry Date</th>
+          <th>Days Left</th>
+        </tr>
+      </thead>
+      <tbody id="certTableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  let certificates = JSON.parse(localStorage.getItem('sslCertificates')) || [];
+
+  function showTab(tabName) {
+    document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+    document.querySelector(`button[onclick="showTab('${tabName}')"]`).classList.add('active');
+    document.getElementById(tabName).classList.add('active');
+    if (tabName === 'view') renderTable();
+  }
+
+  function addCertificate() {
+    const name = document.getElementById('certName').value;
+    const expiry = document.getElementById('expiryDate').value;
+    if (!name || !expiry) return alert('Please enter all details');
+
+    certificates.push({ name, expiry });
+    localStorage.setItem('sslCertificates', JSON.stringify(certificates));
+
+    document.getElementById('certName').value = '';
+    document.getElementById('expiryDate').value = '';
+    alert('Certificate Added Successfully');
+  }
+
+  function uploadCSV(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const lines = e.target.result.split('\n').slice(1);
+      lines.forEach(line => {
+        const [name, expiry] = line.split(',');
+        if (name && expiry) {
+          certificates.push({ name: name.trim(), expiry: expiry.trim() });
+        }
+      });
+      localStorage.setItem('sslCertificates', JSON.stringify(certificates));
+      alert('Bulk Upload Completed');
+    };
+    reader.readAsText(file);
+  }
+
+  function calculateDaysLeft(expiry) {
+    const today = new Date();
+    const expDate = new Date(expiry);
+    const diff = expDate - today;
+    return Math.ceil(diff / (1000 * 60 * 60 * 24));
+  }
+
+  function renderTable() {
+    const tbody = document.getElementById('certTableBody');
+    tbody.innerHTML = '';
+
+    certificates.forEach(cert => {
+      const daysLeft = calculateDaysLeft(cert.expiry);
+      const row = `<tr>
+        <td>${cert.name}</td>
+        <td>${cert.expiry}</td>
+        <td class="${daysLeft <= 14 ? 'danger' : ''}">${daysLeft}</td>
+      </tr>`;
+      tbody.innerHTML += row;
+    });
+  }
+</script>
+
+</body>
+</html>
